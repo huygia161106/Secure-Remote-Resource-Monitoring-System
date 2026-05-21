@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json; // Thư viện xử lý JSON chuyên nghiệp
+﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Concurrent;
 using System.IO;
@@ -6,11 +6,13 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Linq;
+
 namespace Server
 {
     public partial class ServerForm : Form
@@ -18,9 +20,10 @@ namespace Server
         private TcpListener listener;
         private DatabaseHelper db;
 
-        // Quản lý các luồng gửi của Client B để có thể gửi lệnh "Kill" ngược xuống
-        private static ConcurrentDictionary<string, AgentSession> connectedAgents= new ConcurrentDictionary<string, AgentSession>();
+        // Quản lý phiên giám sát (Thread-safe collection)
+        private static ConcurrentDictionary<string, AgentSession> connectedAgents = new ConcurrentDictionary<string, AgentSession>();
 
+        // Quản lý phân quyền dựa trên luồng kết nối TCP
         private static ConcurrentDictionary<StreamWriter, string> connectedRoles = new ConcurrentDictionary<StreamWriter, string>();
 
         public ServerForm()
@@ -31,17 +34,20 @@ namespace Server
 
         private async void ServerForm_Load_1(object sender, EventArgs e)
         {
-            LogToScreen("=== HỆ THỐNG GIÁM SÁT TRUNG TÂM (JSON MODE) ===");
+            LogToScreen("=== HỆ THỐNG ĐIỀU PHỐI TRUNG TÂM (SECURE MODE) ===");
             await Task.Run(() => StartServerAsync());
         }
 
+        /// <summary>
+        /// Khởi tạo TcpListener và liên tục lắng nghe các kết nối từ máy trạm.
+        /// </summary>
         private async Task StartServerAsync()
         {
             try
             {
                 listener = new TcpListener(IPAddress.Any, 8888);
                 listener.Start();
-                LogToScreen("Server đang lắng nghe tại Port 8888...");
+                LogToScreen("Máy chủ đang lắng nghe tại cổng 8888...");
 
                 while (true)
                 {
@@ -49,18 +55,25 @@ namespace Server
                     _ = HandleClientAsync(client);
                 }
             }
-            catch (Exception ex) { LogToScreen("[LỖI HỆ THỐNG] " + ex.Message); }
+            catch (Exception ex)
+            {
+                LogToScreen($"[LỖI HỆ THỐNG] {ex.Message}");
+            }
         }
 
+        /// <summary>
+        /// Xử lý độc lập từng kết nối Client thông qua đường hầm bảo mật mTLS.
+        /// </summary>
         private async Task HandleClientAsync(TcpClient client)
         {
             StreamWriter writer = null;
-            string agentShareCode = null; // lưu shareCode nếu client này là Agent
+            string agentShareCode = null;
 
             try
             {
                 using (SslStream sslStream = new SslStream(client.GetStream(), false, ValidateClientCertificate))
                 {
+                    // Trình chứng chỉ máy chủ và yêu cầu xác thực lẫn nhau (Mutual Authentication)
                     X509Certificate2 cert = new X509Certificate2("ServerCertECC.pfx", "NT106.Q23");
                     await sslStream.AuthenticateAsServerAsync(cert, true, SslProtocols.Tls12, false);
 
@@ -76,6 +89,7 @@ namespace Server
 
                             switch (type)
                             {
+                                #region --- LUỒNG XÁC THỰC VÀ ĐĂNG KÝ TÀI KHOẢN ---
                                 case "GET_SALT":
                                     string salt = db.GetUserSalt((string)data.Username);
                                     await writer.WriteLineAsync(salt != null ? $"SALT {salt}" : "NOT_FOUND");
@@ -84,7 +98,7 @@ namespace Server
                                 case "REGISTER":
                                     bool isCreated = db.CreateUser((string)data.Username, (string)data.Password, (string)data.Salt);
                                     await writer.WriteLineAsync(isCreated ? "REGISTER_OK" : "REGISTER_FAIL");
-                                    LogToScreen($"[HỆ THỐNG] Đăng ký tài khoản: {(string)data.Username}");
+                                    LogToScreen($"[HỆ THỐNG] Khởi tạo tài khoản mới: {(string)data.Username}");
                                     break;
 
                                 case "LOGIN":
@@ -93,7 +107,7 @@ namespace Server
                                     {
                                         await writer.WriteLineAsync($"LOGIN_OK {role}");
                                         connectedRoles[writer] = role;
-                                        LogToScreen($"[HỆ THỐNG] Đăng nhập: {(string)data.Username} (Quyền: {role})");
+                                        LogToScreen($"[HỆ THỐNG] Cấp phép truy cập: {(string)data.Username} (Quyền hạn: {role})");
                                     }
                                     else
                                     {
@@ -101,32 +115,68 @@ namespace Server
                                     }
                                     break;
 
+                                case "IDENTIFY_DASHBOARD":
+                                    string clientRole = (string)data.Role;
+                                    connectedRoles[writer] = clientRole;
+                                    LogToScreen($"[HỆ THỐNG] Nhận diện kết nối Dashboard: {(string)data.Username} (Quyền hạn: {clientRole})");
+                                    break;
+                                #endregion
+
+                                #region --- QUẢN LÝ PHIÊN GIÁM SÁT (AGENT SESSIONS) ---
                                 case "REGISTER_AGENT":
                                     {
-                                        string shareCode = GenerateShareCode();
+                                        string agentId = GenerateStaticID((string)data.MachineName);
+                                        string sessionPass = GenerateRandomPassword();
+
                                         AgentSession session = new AgentSession
                                         {
-                                            ShareCode = shareCode,
+                                            ShareCode = agentId,
+                                            SessionPassword = sessionPass,
                                             MachineName = (string)data.MachineName,
                                             IP = (string)data.IP,
                                             Username = (string)data.Username,
                                             Writer = writer,
-                                            LatestData = ""
+                                            LatestData = "",
+                                            IsOnline = true
                                         };
-                                        connectedAgents[shareCode] = session;
-                                        agentShareCode = shareCode; // ✅ Lưu lại để finally dùng
-                                        await writer.WriteLineAsync($"REGISTER_OK|{shareCode}");
-                                        LogToScreen($"[AGENT ONLINE] {session.MachineName} | USER: {session.Username} | CODE: {shareCode}");
+
+                                        connectedAgents[agentId] = session;
+                                        agentShareCode = agentId;
+
+                                        await writer.WriteLineAsync($"REGISTER_OK|{agentId}|{sessionPass}");
+                                        LogToScreen($"[AGENT ONLINE] {session.MachineName} | ID: {agentId} | Pass: {sessionPass}");
                                         break;
                                     }
 
+                                case "AUTH_AGENT":
+                                    {
+                                        string targetId = (string)data.TargetID;
+                                        string targetPass = (string)data.Password;
+
+                                        if (connectedAgents.TryGetValue(targetId, out var targetSession))
+                                        {
+                                            if (!targetSession.IsOnline)
+                                                await writer.WriteLineAsync("AUTH_FAIL|Máy trạm đang trong trạng thái OFFLINE!");
+                                            else if (targetSession.SessionPassword == targetPass)
+                                                await writer.WriteLineAsync("AUTH_OK");
+                                            else
+                                                await writer.WriteLineAsync("AUTH_FAIL|Mật khẩu xác thực phiên không chính xác!");
+                                        }
+                                        else
+                                        {
+                                            await writer.WriteLineAsync("AUTH_FAIL|Không tìm thấy mã định danh máy trạm!");
+                                        }
+                                        break;
+                                    }
+                                #endregion
+
+                                #region --- ĐIỀU PHỐI DỮ LIỆU TÀI NGUYÊN HỆ THỐNG ---
                                 case "PUSH_RESOURCE":
                                     {
                                         string shareCode = (string)data.ShareCode;
                                         if (connectedAgents.TryGetValue(shareCode, out var session))
                                         {
                                             session.LatestData = requestJson;
-                                            LogToScreen($"[RESOURCE] {session.MachineName} | CPU: {(string)data.Cpu}% | RAM: {(string)data.Ram}%");
                                         }
                                         break;
                                     }
@@ -134,10 +184,27 @@ namespace Server
                                 case "GET_LATEST_BY_CODE":
                                     {
                                         string shareCode = (string)data.ShareCode;
+                                        string reqPass = (string)data.Password;
+
                                         if (connectedAgents.TryGetValue(shareCode, out var session))
-                                            await writer.WriteLineAsync($"LATEST_DATA {session.LatestData}");
+                                        {
+                                            if (!session.IsOnline)
+                                            {
+                                                await writer.WriteLineAsync("AGENT_OFFLINE");
+                                            }
+                                            else if (IsAdmin(writer) || session.SessionPassword == reqPass)
+                                            {
+                                                await writer.WriteLineAsync($"LATEST_DATA {session.LatestData}");
+                                            }
+                                            else
+                                            {
+                                                await writer.WriteLineAsync("SESSION_EXPIRED");
+                                            }
+                                        }
                                         else
+                                        {
                                             await writer.WriteLineAsync("NO_DATA");
+                                        }
                                         break;
                                     }
 
@@ -148,35 +215,79 @@ namespace Server
                                             await writer.WriteLineAsync("ACCESS_DENIED");
                                             break;
                                         }
+
                                         string result = string.Join(";", connectedAgents.Values
-                                            .Select(s => $"{s.ShareCode}|{s.MachineName}|{s.Username}|ONLINE"));
+                                            .Select(s => $"{s.ShareCode}|{s.MachineName}|{s.Username}|{(s.IsOnline ? "ONLINE" : "OFFLINE")}"));
+
                                         await writer.WriteLineAsync(result);
-                                        LogToScreen($"[ADMIN] Gửi danh sách clients: {result}");
+                                        break;
+                                    }
+                                #endregion
+
+                                #region --- XỬ LÝ NHẬT KÝ SỰ KIỆN & LỆNH ĐIỀU KHIỂN ---
+                                case "PUSH_REALTIME_LOG":
+                                    {
+                                        string shareCode = (string)data.ShareCode;
+                                        if (connectedAgents.TryGetValue(shareCode, out var session))
+                                        {
+                                            session.PendingLogs.Enqueue(requestJson);
+                                            // Giới hạn hàng đợi để tối ưu hóa bộ nhớ
+                                            if (session.PendingLogs.Count > 50)
+                                                session.PendingLogs.TryDequeue(out _);
+                                        }
                                         break;
                                     }
 
-                                case "GET_LATEST":
-                                    string latest = db.GetLatestResource((string)data.TargetClientId);
-                                    await writer.WriteLineAsync(latest != null ? $"LATEST_DATA {latest}" : "NO_DATA");
-                                    break;
+                                case "GET_EVENT_LOGS":
+                                    {
+                                        string targetCode = (string)data.TargetShareCode;
+                                        string reqPass = (string)data.Password;
+
+                                        if (connectedAgents.TryGetValue(targetCode, out var session))
+                                        {
+                                            if (!session.IsOnline)
+                                            {
+                                                await writer.WriteLineAsync("NO_NEW_LOGS");
+                                            }
+                                            else if (IsAdmin(writer) || session.SessionPassword == reqPass)
+                                            {
+                                                var logsToDeliver = new System.Collections.Generic.List<string>();
+                                                while (session.PendingLogs.TryDequeue(out string singleLog))
+                                                {
+                                                    logsToDeliver.Add(singleLog);
+                                                }
+
+                                                if (logsToDeliver.Count > 0)
+                                                    await writer.WriteLineAsync(JsonConvert.SerializeObject(new { Type = "EVENT_LOGS_DATA", Logs = logsToDeliver }));
+                                                else
+                                                    await writer.WriteLineAsync("NO_NEW_LOGS");
+                                            }
+                                            else
+                                            {
+                                                await writer.WriteLineAsync("SESSION_EXPIRED");
+                                            }
+                                        }
+                                        else
+                                        {
+                                            await writer.WriteLineAsync("NO_NEW_LOGS");
+                                        }
+                                        break;
+                                    }
 
                                 case "REMOTE_KILL":
                                     {
                                         if (!IsAdmin(writer))
                                         {
                                             await writer.WriteLineAsync("ACCESS_DENIED");
-                                            LogToScreen("[SECURITY] User cố dùng REMOTE_KILL");
                                             break;
                                         }
+
                                         string target = (string)data.TargetClientId;
                                         string processName = (string)data.ProcessName;
-                                        if (connectedAgents.TryGetValue(target, out var session))
+
+                                        if (connectedAgents.TryGetValue(target, out var session) && session.IsOnline)
                                         {
-                                            await session.Writer.WriteLineAsync(JsonConvert.SerializeObject(new
-                                            {
-                                                Type = "KILL_PROCESS",
-                                                ProcessName = processName
-                                            }));
+                                            await session.Writer.WriteLineAsync(JsonConvert.SerializeObject(new { Type = "KILL_PROCESS", ProcessName = processName }));
                                             await writer.WriteLineAsync("KILL_SENT");
                                         }
                                         else
@@ -185,13 +296,7 @@ namespace Server
                                         }
                                         break;
                                     }
-                                case "IDENTIFY_DASHBOARD":
-                                    {
-                                        string clientRole = (string)data.Role;
-                                        connectedRoles[writer] = clientRole; // Đăng ký quyền Admin/User cho kết nối mới này
-                                        LogToScreen($"[HỆ THỐNG] Xác thực lại kết nối: {(string)data.Username} (Quyền: {clientRole})");
-                                        break;
-                                    }
+                                    #endregion
                             }
                         }
                     }
@@ -199,15 +304,21 @@ namespace Server
             }
             catch (Exception ex)
             {
-                LogToScreen($"[NGẮT KẾT NỐI] {ex.Message}");
+                LogToScreen($"[NGẮT KẾT NỐI] Mất luồng giao tiếp TCP - {ex.Message}");
             }
             finally
             {
+                // Cập nhật trạng thái Offline khi Client đóng kết nối thay vì xóa khỏi hệ thống
                 if (agentShareCode != null)
                 {
-                    connectedAgents.TryRemove(agentShareCode, out var removed);
-                    if (removed != null)
-                        LogToScreen($"[AGENT OFFLINE] {removed.MachineName} | CODE: {agentShareCode}");
+                    if (connectedAgents.TryGetValue(agentShareCode, out var session))
+                    {
+                        if (session.Writer == writer)
+                        {
+                            session.IsOnline = false;
+                            LogToScreen($"[AGENT OFFLINE] {session.MachineName} đã ngắt kết nối chia sẻ.");
+                        }
+                    }
                 }
 
                 if (writer != null)
@@ -220,38 +331,74 @@ namespace Server
             }
         }
 
-        private bool ValidateClientCertificate(object sender, X509Certificate cert, X509Chain chain, SslPolicyErrors errors)
+        #region --- TIỆN ÍCH BẢO MẬT & XỬ LÝ HỆ THỐNG ---
+
+        /// <summary>
+        /// Khởi tạo mã định danh tĩnh (Static ID) thông qua thuật toán băm SHA-256 dựa trên định danh phần cứng.
+        /// </summary>
+        private string GenerateStaticID(string machineName)
         {
-            if (cert == null) return false;
-            X509Certificate2 cert2 = new X509Certificate2(cert);
-            return cert2.Issuer.Contains("UIT_ECC_RootCA") && cert2.Subject.Contains("RemoteMonitorClient");
+            using (var sha256 = SHA256.Create())
+            {
+                byte[] hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(machineName + "SecretUITKey"));
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < 3; i++) sb.Append(hashBytes[i].ToString("X2"));
+                return sb.ToString();
+            }
         }
 
+        /// <summary>
+        /// Tạo mật khẩu cấp phát động (Dynamic Session Password) ngẫu nhiên gồm 6 chữ số.
+        /// </summary>
+        private string GenerateRandomPassword()
+        {
+            Random rnd = new Random();
+            return rnd.Next(100000, 999999).ToString();
+        }
+
+        private bool IsAdmin(StreamWriter writer)
+        {
+            return connectedRoles.TryGetValue(writer, out string role) && role == "Admin";
+        }
+
+        /// <summary>
+        /// Giao thức xác thực chứng chỉ số mTLS từ Client gửi lên.
+        /// Kiểm tra tính hợp lệ của Root CA và phân loại Subject.
+        /// </summary>
+        private bool ValidateClientCertificate(object sender, X509Certificate cert, X509Chain chain, SslPolicyErrors errors)
+        {
+            if (cert == null)
+            {
+                LogToScreen("[BẢO MẬT] Từ chối: Client không cung cấp chứng chỉ định danh (Vui lòng kiểm tra Root CA).");
+                return false;
+            }
+
+            X509Certificate2 cert2 = new X509Certificate2(cert);
+            bool isValidIssuer = cert2.Issuer.Contains("UIT_ECC_RootCA");
+            bool isValidSubject = cert2.Subject.Contains("RemoteMonitorClient") || cert2.Subject.Contains("RemoteMonitorServer");
+
+            if (!isValidIssuer || !isValidSubject)
+            {
+                LogToScreen($"[BẢO MẬT] Từ chối kết nối: Thông tin chứng chỉ (Issuer/Subject) không hợp lệ.");
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Ghi nhận nhật ký hệ thống ra màn hình giao diện (An toàn đa luồng).
+        /// </summary>
         private void LogToScreen(string msg)
         {
-            if (rtbLogs.InvokeRequired) { rtbLogs.Invoke(new Action(() => LogToScreen(msg))); return; }
+            if (rtbLogs.InvokeRequired)
+            {
+                rtbLogs.Invoke(new Action(() => LogToScreen(msg)));
+                return;
+            }
             rtbLogs.AppendText($"{DateTime.Now:HH:mm:ss} - {msg}{Environment.NewLine}");
             rtbLogs.ScrollToCaret();
         }
-        private string GenerateShareCode()
-        {
-            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-
-            Random rnd = new Random();
-
-            return "RM-" +
-                   new string(Enumerable.Repeat(chars, 8)
-                   .Select(s => s[rnd.Next(s.Length)])
-                   .ToArray());
-        }
-        private bool IsAdmin(StreamWriter writer)
-        {
-            if (connectedRoles.TryGetValue(writer, out string role))
-            {
-                return role == "Admin";
-            }
-
-            return false;
-        }
+        #endregion
     }
 }

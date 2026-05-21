@@ -8,10 +8,14 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using Newtonsoft.Json; // <-- THÊM THƯ VIỆN NÀY ĐỂ XỬ LÝ JSON
+using Newtonsoft.Json;
 
 namespace Client
 {
+    /// <summary>
+    /// Giao diện đăng ký tài khoản hệ thống.
+    /// Triển khai cơ chế sinh chuỗi ngẫu nhiên an toàn mật mã (CSPRNG) để tạo Salt.
+    /// </summary>
     public partial class RegisterForm : Form
     {
         public RegisterForm()
@@ -19,6 +23,9 @@ namespace Client
             InitializeComponent();
         }
 
+        /// <summary>
+        /// Sinh chuỗi Salt ngẫu nhiên sử dụng RNGCryptoServiceProvider.
+        /// </summary>
         private string GenerateSalt(int length = 16)
         {
             byte[] saltBytes = new byte[length];
@@ -37,13 +44,13 @@ namespace Client
 
             if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
             {
-                MessageBox.Show("Vui lòng nhập đầy đủ thông tin!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Vui lòng nhập đầy đủ thông tin định danh!", "Lỗi xác thực", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
             if (password != confirmPassword)
             {
-                MessageBox.Show("Mật khẩu xác nhận không khớp!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Xác nhận mật khẩu không trùng khớp!", "Lỗi tính toàn vẹn", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -52,7 +59,6 @@ namespace Client
 
             try
             {
-                // Lưu ý: Đổi "127.0.0.1" thành IP LAN của máy Server nếu bạn test qua mạng LAN
                 using (TcpClient client = new TcpClient("127.0.0.1", 8888))
                 using (NetworkStream netStream = client.GetStream())
                 using (SslStream sslStream = new SslStream(netStream, false, ValidateServerCertificate))
@@ -65,7 +71,6 @@ namespace Client
                     using (StreamReader reader = new StreamReader(sslStream, Encoding.UTF8))
                     using (StreamWriter writer = new StreamWriter(sslStream, Encoding.UTF8) { AutoFlush = true })
                     {
-                        // --- ĐÃ SỬA: Đóng gói dữ liệu thành chuẩn JSON ---
                         var regRequest = new
                         {
                             Type = "REGISTER",
@@ -75,25 +80,23 @@ namespace Client
                         };
 
                         await writer.WriteLineAsync(JsonConvert.SerializeObject(regRequest));
-
-                        // Nhận phản hồi
                         string response = await reader.ReadLineAsync();
 
                         if (response == "REGISTER_OK")
                         {
-                            MessageBox.Show("Đăng ký tài khoản thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            MessageBox.Show("Cấp phát định danh tài khoản thành công!", "Thông báo hệ thống", MessageBoxButtons.OK, MessageBoxIcon.Information);
                             this.Close();
                         }
                         else
                         {
-                            MessageBox.Show("Tên đăng nhập đã tồn tại hoặc có lỗi xảy ra!", "Đăng ký thất bại", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            MessageBox.Show("Định danh đã tồn tại hoặc hệ thống từ chối yêu cầu!", "Lỗi khởi tạo", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Không thể kết nối đến Server: " + ex.Message, "Lỗi mạng", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Xảy ra lỗi trong tiến trình giao tiếp mạng: {ex.Message}", "Lỗi hệ thống", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -115,11 +118,7 @@ namespace Client
         {
             if (certificate == null) return false;
             X509Certificate2 cert2 = new X509Certificate2(certificate);
-            if (cert2.Issuer.Contains("UIT_ECC_RootCA") && cert2.Subject.Contains("RemoteMonitorServer"))
-            {
-                return true;
-            }
-            return false;
+            return cert2.Issuer.Contains("UIT_ECC_RootCA") && cert2.Subject.Contains("RemoteMonitorServer");
         }
     }
 }
