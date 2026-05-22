@@ -21,10 +21,6 @@ namespace Server
             }
         }
 
-        /// <summary>
-        /// Xác thực thông tin đăng nhập của người dùng.
-        /// </summary>
-        /// <returns>Chuỗi phân quyền (Role) nếu thành công, null nếu thất bại.</returns>
         public string ValidateUser(string username, string passwordHash)
         {
             using (SQLiteConnection conn = new SQLiteConnection(connectionString))
@@ -42,17 +38,10 @@ namespace Server
                         return result != null ? result.ToString() : null;
                     }
                 }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine("[LỖI DB - ValidateUser] " + ex.Message);
-                    return null;
-                }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[LỖI DB - ValidateUser] " + ex.Message); return null; }
             }
         }
 
-        /// <summary>
-        /// Truy xuất chuỗi Salt ngẫu nhiên được cấp phát riêng cho từng tài khoản.
-        /// </summary>
         public string GetUserSalt(string username)
         {
             using (SQLiteConnection conn = new SQLiteConnection(connectionString))
@@ -68,17 +57,10 @@ namespace Server
                         return result != null ? result.ToString() : null;
                     }
                 }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine("[LỖI DB - GetUserSalt] " + ex.Message);
-                    return null;
-                }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[LỖI DB - GetUserSalt] " + ex.Message); return null; }
             }
         }
 
-        /// <summary>
-        /// Khởi tạo tài khoản người dùng mới vào hệ thống.
-        /// </summary>
         public bool CreateUser(string username, string passwordHash, string salt)
         {
             using (SQLiteConnection conn = new SQLiteConnection(connectionString))
@@ -92,49 +74,92 @@ namespace Server
                         cmd.Parameters.AddWithValue("@user", username);
                         cmd.Parameters.AddWithValue("@pass", passwordHash);
                         cmd.Parameters.AddWithValue("@salt", salt);
-
                         return cmd.ExecuteNonQuery() > 0;
                     }
                 }
-                catch
-                {
-                    return false;
-                }
+                catch { return false; }
             }
         }
 
+
         /// <summary>
-        /// Truy xuất danh sách toàn bộ các máy trạm (Clients) đã từng kết nối vào hệ thống.
+        /// Lưu hoặc cập nhật thông tin thiết bị vào bảng Clients (Sử dụng lệnh Upsert).
         /// </summary>
-        /// <returns>Chuỗi JSON chứa danh sách máy trạm.</returns>
-        public string GetAllClientsList()
+        public void SaveClient(string shareCode, string machineName, string ip)
         {
             using (SQLiteConnection conn = new SQLiteConnection(connectionString))
             {
                 try
                 {
                     conn.Open();
-                    string query = "SELECT ClientId, MachineName, IP, LastActive FROM Clients";
+                    string query = @"
+                        INSERT INTO Clients (ShareCode, MachineName, IP, LastActive) 
+                        VALUES (@code, @name, @ip, CURRENT_TIMESTAMP)
+                        ON CONFLICT(ShareCode) DO UPDATE SET 
+                        IP = excluded.IP, LastActive = CURRENT_TIMESTAMP;";
                     using (SQLiteCommand cmd = new SQLiteCommand(query, conn))
-                    using (SQLiteDataReader reader = cmd.ExecuteReader())
                     {
-                        var clientsList = new System.Collections.Generic.List<object>();
-                        while (reader.Read())
-                        {
-                            clientsList.Add(new
-                            {
-                                ClientId = reader["ClientId"].ToString(),
-                                MachineName = reader["MachineName"].ToString(),
-                                IP = reader["IP"].ToString()
-                            });
-                        }
-                        return JsonConvert.SerializeObject(clientsList);
+                        cmd.Parameters.AddWithValue("@code", shareCode);
+                        cmd.Parameters.AddWithValue("@name", machineName);
+                        cmd.Parameters.AddWithValue("@ip", ip);
+                        cmd.ExecuteNonQuery();
                     }
                 }
-                catch
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[LỖI DB - SaveClient] " + ex.Message); }
+            }
+        }
+
+        /// <summary>
+        /// Ghi nhận lịch sử tài nguyên phần cứng định kỳ.
+        /// </summary>
+        public void SaveResourceHistory(string shareCode, double cpu, double ram, double disk, double netDown, double netUp, string appList)
+        {
+            using (SQLiteConnection conn = new SQLiteConnection(connectionString))
+            {
+                try
                 {
-                    return "[]";
+                    conn.Open();
+                    string query = @"INSERT INTO ResourceHistory (ShareCode, CpuPercent, RamPercent, DiskPercent, NetworkDown, NetworkUp, AppList) 
+                                     VALUES (@code, @cpu, @ram, @disk, @netDown, @netUp, @appList)";
+                    using (SQLiteCommand cmd = new SQLiteCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@code", shareCode);
+                        cmd.Parameters.AddWithValue("@cpu", cpu);
+                        cmd.Parameters.AddWithValue("@ram", ram);
+                        cmd.Parameters.AddWithValue("@disk", disk);
+                        cmd.Parameters.AddWithValue("@netDown", netDown);
+                        cmd.Parameters.AddWithValue("@netUp", netUp);
+                        cmd.Parameters.AddWithValue("@appList", appList);
+                        cmd.ExecuteNonQuery();
+                    }
                 }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[LỖI DB - SaveResource] " + ex.Message); }
+            }
+        }
+
+        /// <summary>
+        /// Ghi nhận nhật ký sự kiện an ninh hệ thống.
+        /// </summary>
+        public void SaveEventLog(string shareCode, string logType, string source, string message, string logTime)
+        {
+            using (SQLiteConnection conn = new SQLiteConnection(connectionString))
+            {
+                try
+                {
+                    conn.Open();
+                    string query = @"INSERT INTO EventLogs (ShareCode, LogType, Source, Message, LogTime) 
+                                     VALUES (@code, @type, @source, @msg, @time)";
+                    using (SQLiteCommand cmd = new SQLiteCommand(query, conn))
+                    {
+                        cmd.Parameters.AddWithValue("@code", shareCode);
+                        cmd.Parameters.AddWithValue("@type", logType);
+                        cmd.Parameters.AddWithValue("@source", source);
+                        cmd.Parameters.AddWithValue("@msg", message);
+                        cmd.Parameters.AddWithValue("@time", logTime);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[LỖI DB - SaveEventLog] " + ex.Message); }
             }
         }
     }

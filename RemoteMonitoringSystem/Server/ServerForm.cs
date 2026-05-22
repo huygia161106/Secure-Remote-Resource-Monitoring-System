@@ -143,6 +143,8 @@ namespace Server
                                         connectedAgents[agentId] = session;
                                         agentShareCode = agentId;
 
+                                        _ = Task.Run(() => db.SaveClient(agentId, session.MachineName, session.IP));
+
                                         await writer.WriteLineAsync($"REGISTER_OK|{agentId}|{sessionPass}");
                                         LogToScreen($"[AGENT ONLINE] {session.MachineName} | ID: {agentId} | Pass: {sessionPass}");
                                         break;
@@ -176,7 +178,19 @@ namespace Server
                                         string shareCode = (string)data.ShareCode;
                                         if (connectedAgents.TryGetValue(shareCode, out var session))
                                         {
-                                            session.LatestData = requestJson;
+                                            session.LatestData = requestJson; 
+
+                                            _ = Task.Run(() => {
+                                                db.SaveResourceHistory(
+                                                    shareCode,
+                                                    Convert.ToDouble(data.Cpu),
+                                                    Convert.ToDouble(data.Ram),
+                                                    Convert.ToDouble(data.Disk),
+                                                    Convert.ToDouble(data.NetDown),
+                                                    Convert.ToDouble(data.NetUp),
+                                                    (string)data.AppList
+                                                );
+                                            });
                                         }
                                         break;
                                     }
@@ -231,9 +245,18 @@ namespace Server
                                         if (connectedAgents.TryGetValue(shareCode, out var session))
                                         {
                                             session.PendingLogs.Enqueue(requestJson);
-                                            // Giới hạn hàng đợi để tối ưu hóa bộ nhớ
                                             if (session.PendingLogs.Count > 50)
                                                 session.PendingLogs.TryDequeue(out _);
+
+                                            _ = Task.Run(() => {
+                                                db.SaveEventLog(
+                                                    shareCode,
+                                                    (string)data.LogType,
+                                                    (string)data.Source,
+                                                    (string)data.Message,
+                                                    (string)data.Time
+                                                );
+                                            });
                                         }
                                         break;
                                     }
