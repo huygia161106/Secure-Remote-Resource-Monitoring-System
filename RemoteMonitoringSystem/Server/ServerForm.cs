@@ -178,7 +178,7 @@ namespace Server
                                         string shareCode = (string)data.ShareCode;
                                         if (connectedAgents.TryGetValue(shareCode, out var session))
                                         {
-                                            session.LatestData = requestJson; 
+                                            session.LatestData = requestJson;
 
                                             _ = Task.Run(() => {
                                                 db.SaveResourceHistory(
@@ -188,13 +188,16 @@ namespace Server
                                                     Convert.ToDouble(data.Disk),
                                                     Convert.ToDouble(data.NetDown),
                                                     Convert.ToDouble(data.NetUp),
-                                                    (string)data.AppList
+                                                    (string)data.AppList,
+                                                    Convert.ToDouble(data.CpuTemp),   
+                                                    Convert.ToDouble(data.GpuTemp),   
+                                                    Convert.ToDouble(data.HddTemp),   
+                                                    Convert.ToDouble(data.BoardTemp)  
                                                 );
                                             });
                                         }
                                         break;
                                     }
-
                                 case "GET_LATEST_BY_CODE":
                                     {
                                         string shareCode = (string)data.ShareCode;

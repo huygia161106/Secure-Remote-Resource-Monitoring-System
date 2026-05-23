@@ -42,6 +42,7 @@
             this.timerFetchData = new System.Windows.Forms.Timer(this.components);
             this.guna2TabControl1 = new Guna.UI2.WinForms.Guna2TabControl();
             this.tabPage2 = new System.Windows.Forms.TabPage();
+            this.txtTargetPassword = new Guna.UI2.WinForms.Guna2TextBox();
             this.txtShareCode = new Guna.UI2.WinForms.Guna2TextBox();
             this.btnConnectCode = new Guna.UI2.WinForms.Guna2Button();
             this.guna2TabControl2 = new Guna.UI2.WinForms.Guna2TabControl();
@@ -53,6 +54,15 @@
             this.ContextMenuAppList = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.menuEndTaskToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.tabPage3 = new System.Windows.Forms.TabPage();
+            this.guna2Panel1 = new Guna.UI2.WinForms.Guna2Panel();
+            this.lblBoardTemp = new System.Windows.Forms.Label();
+            this.lblHddTemp = new System.Windows.Forms.Label();
+            this.lblGpuTemp = new System.Windows.Forms.Label();
+            this.lblCpuTemp = new System.Windows.Forms.Label();
+            this.label10 = new System.Windows.Forms.Label();
+            this.label8 = new System.Windows.Forms.Label();
+            this.label7 = new System.Windows.Forms.Label();
+            this.label4 = new System.Windows.Forms.Label();
             this.progressBar3 = new System.Windows.Forms.ProgressBar();
             this.label24 = new System.Windows.Forms.Label();
             this.lblNetDown = new System.Windows.Forms.Label();
@@ -91,13 +101,13 @@
             this.label23 = new System.Windows.Forms.Label();
             this.guna2PictureBox1 = new Guna.UI2.WinForms.Guna2PictureBox();
             this.guna2AnimateWindow1 = new Guna.UI2.WinForms.Guna2AnimateWindow(this.components);
-            this.txtTargetPassword = new Guna.UI2.WinForms.Guna2TextBox();
             this.guna2TabControl1.SuspendLayout();
             this.tabPage2.SuspendLayout();
             this.guna2TabControl2.SuspendLayout();
             this.tabPage4.SuspendLayout();
             this.ContextMenuAppList.SuspendLayout();
             this.tabPage3.SuspendLayout();
+            this.guna2Panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.chart1)).BeginInit();
             this.tabPage5.SuspendLayout();
             this.tabPage1.SuspendLayout();
@@ -187,6 +197,25 @@
             this.tabPage2.Size = new System.Drawing.Size(1456, 746);
             this.tabPage2.TabIndex = 1;
             this.tabPage2.Text = "Theo dõi";
+            // 
+            // txtTargetPassword
+            // 
+            this.txtTargetPassword.Cursor = System.Windows.Forms.Cursors.IBeam;
+            this.txtTargetPassword.DefaultText = "";
+            this.txtTargetPassword.DisabledState.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.txtTargetPassword.DisabledState.FillColor = System.Drawing.Color.FromArgb(((int)(((byte)(226)))), ((int)(((byte)(226)))), ((int)(((byte)(226)))));
+            this.txtTargetPassword.DisabledState.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(138)))), ((int)(((byte)(138)))), ((int)(((byte)(138)))));
+            this.txtTargetPassword.DisabledState.PlaceholderForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(138)))), ((int)(((byte)(138)))), ((int)(((byte)(138)))));
+            this.txtTargetPassword.FocusedState.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(94)))), ((int)(((byte)(148)))), ((int)(((byte)(255)))));
+            this.txtTargetPassword.Font = new System.Drawing.Font("Segoe UI", 14.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(163)));
+            this.txtTargetPassword.HoverState.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(94)))), ((int)(((byte)(148)))), ((int)(((byte)(255)))));
+            this.txtTargetPassword.Location = new System.Drawing.Point(530, 7);
+            this.txtTargetPassword.Margin = new System.Windows.Forms.Padding(7, 6, 7, 6);
+            this.txtTargetPassword.Name = "txtTargetPassword";
+            this.txtTargetPassword.PlaceholderText = "Mật khẩu";
+            this.txtTargetPassword.SelectedText = "";
+            this.txtTargetPassword.Size = new System.Drawing.Size(201, 41);
+            this.txtTargetPassword.TabIndex = 31;
             // 
             // txtShareCode
             // 
@@ -328,6 +357,7 @@
             // tabPage3
             // 
             this.tabPage3.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.tabPage3.Controls.Add(this.guna2Panel1);
             this.tabPage3.Controls.Add(this.progressBar3);
             this.tabPage3.Controls.Add(this.label24);
             this.tabPage3.Controls.Add(this.lblNetDown);
@@ -351,6 +381,102 @@
             this.tabPage3.Size = new System.Drawing.Size(1163, 643);
             this.tabPage3.TabIndex = 0;
             this.tabPage3.Text = "Tài nguyên hệ thống";
+            // 
+            // guna2Panel1
+            // 
+            this.guna2Panel1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(64)))), ((int)(((byte)(0)))));
+            this.guna2Panel1.Controls.Add(this.lblBoardTemp);
+            this.guna2Panel1.Controls.Add(this.lblHddTemp);
+            this.guna2Panel1.Controls.Add(this.lblGpuTemp);
+            this.guna2Panel1.Controls.Add(this.lblCpuTemp);
+            this.guna2Panel1.Controls.Add(this.label10);
+            this.guna2Panel1.Controls.Add(this.label8);
+            this.guna2Panel1.Controls.Add(this.label7);
+            this.guna2Panel1.Controls.Add(this.label4);
+            this.guna2Panel1.Location = new System.Drawing.Point(596, 21);
+            this.guna2Panel1.Name = "guna2Panel1";
+            this.guna2Panel1.Size = new System.Drawing.Size(475, 106);
+            this.guna2Panel1.TabIndex = 34;
+            // 
+            // lblBoardTemp
+            // 
+            this.lblBoardTemp.AutoSize = true;
+            this.lblBoardTemp.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(154)))), ((int)(((byte)(197)))), ((int)(((byte)(229)))));
+            this.lblBoardTemp.Location = new System.Drawing.Point(380, 70);
+            this.lblBoardTemp.Name = "lblBoardTemp";
+            this.lblBoardTemp.Size = new System.Drawing.Size(55, 32);
+            this.lblBoardTemp.TabIndex = 7;
+            this.lblBoardTemp.Text = "- °C";
+            // 
+            // lblHddTemp
+            // 
+            this.lblHddTemp.AutoSize = true;
+            this.lblHddTemp.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(154)))), ((int)(((byte)(197)))), ((int)(((byte)(229)))));
+            this.lblHddTemp.Location = new System.Drawing.Point(300, 12);
+            this.lblHddTemp.Name = "lblHddTemp";
+            this.lblHddTemp.Size = new System.Drawing.Size(55, 32);
+            this.lblHddTemp.TabIndex = 6;
+            this.lblHddTemp.Text = "- °C";
+            // 
+            // lblGpuTemp
+            // 
+            this.lblGpuTemp.AutoSize = true;
+            this.lblGpuTemp.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(154)))), ((int)(((byte)(197)))), ((int)(((byte)(229)))));
+            this.lblGpuTemp.Location = new System.Drawing.Point(88, 70);
+            this.lblGpuTemp.Name = "lblGpuTemp";
+            this.lblGpuTemp.Size = new System.Drawing.Size(55, 32);
+            this.lblGpuTemp.TabIndex = 5;
+            this.lblGpuTemp.Text = "- °C";
+            // 
+            // lblCpuTemp
+            // 
+            this.lblCpuTemp.AutoSize = true;
+            this.lblCpuTemp.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(154)))), ((int)(((byte)(197)))), ((int)(((byte)(229)))));
+            this.lblCpuTemp.Location = new System.Drawing.Point(87, 12);
+            this.lblCpuTemp.Name = "lblCpuTemp";
+            this.lblCpuTemp.Size = new System.Drawing.Size(55, 32);
+            this.lblCpuTemp.TabIndex = 4;
+            this.lblCpuTemp.Text = "- °C";
+            // 
+            // label10
+            // 
+            this.label10.AutoSize = true;
+            this.label10.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(154)))), ((int)(((byte)(197)))), ((int)(((byte)(229)))));
+            this.label10.Location = new System.Drawing.Point(218, 70);
+            this.label10.Name = "label10";
+            this.label10.Size = new System.Drawing.Size(164, 32);
+            this.label10.TabIndex = 3;
+            this.label10.Text = "MAINBOARD: ";
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(154)))), ((int)(((byte)(197)))), ((int)(((byte)(229)))));
+            this.label8.Location = new System.Drawing.Point(218, 12);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(76, 32);
+            this.label8.TabIndex = 2;
+            this.label8.Text = "DISK: ";
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(154)))), ((int)(((byte)(197)))), ((int)(((byte)(229)))));
+            this.label7.Location = new System.Drawing.Point(18, 70);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(64, 32);
+            this.label7.TabIndex = 1;
+            this.label7.Text = "GPU:";
+            // 
+            // label4
+            // 
+            this.label4.AutoSize = true;
+            this.label4.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(154)))), ((int)(((byte)(197)))), ((int)(((byte)(229)))));
+            this.label4.Location = new System.Drawing.Point(18, 12);
+            this.label4.Name = "label4";
+            this.label4.Size = new System.Drawing.Size(63, 32);
+            this.label4.TabIndex = 0;
+            this.label4.Text = "CPU:";
             // 
             // progressBar3
             // 
@@ -831,25 +957,6 @@
             this.guna2PictureBox1.TabIndex = 3;
             this.guna2PictureBox1.TabStop = false;
             // 
-            // txtTargetPassword
-            // 
-            this.txtTargetPassword.Cursor = System.Windows.Forms.Cursors.IBeam;
-            this.txtTargetPassword.DefaultText = "";
-            this.txtTargetPassword.DisabledState.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
-            this.txtTargetPassword.DisabledState.FillColor = System.Drawing.Color.FromArgb(((int)(((byte)(226)))), ((int)(((byte)(226)))), ((int)(((byte)(226)))));
-            this.txtTargetPassword.DisabledState.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(138)))), ((int)(((byte)(138)))), ((int)(((byte)(138)))));
-            this.txtTargetPassword.DisabledState.PlaceholderForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(138)))), ((int)(((byte)(138)))), ((int)(((byte)(138)))));
-            this.txtTargetPassword.FocusedState.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(94)))), ((int)(((byte)(148)))), ((int)(((byte)(255)))));
-            this.txtTargetPassword.Font = new System.Drawing.Font("Segoe UI", 14.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(163)));
-            this.txtTargetPassword.HoverState.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(94)))), ((int)(((byte)(148)))), ((int)(((byte)(255)))));
-            this.txtTargetPassword.Location = new System.Drawing.Point(530, 7);
-            this.txtTargetPassword.Margin = new System.Windows.Forms.Padding(7, 6, 7, 6);
-            this.txtTargetPassword.Name = "txtTargetPassword";
-            this.txtTargetPassword.PlaceholderText = "Mật khẩu";
-            this.txtTargetPassword.SelectedText = "";
-            this.txtTargetPassword.Size = new System.Drawing.Size(201, 41);
-            this.txtTargetPassword.TabIndex = 31;
-            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
@@ -872,6 +979,8 @@
             this.ContextMenuAppList.ResumeLayout(false);
             this.tabPage3.ResumeLayout(false);
             this.tabPage3.PerformLayout();
+            this.guna2Panel1.ResumeLayout(false);
+            this.guna2Panel1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.chart1)).EndInit();
             this.tabPage5.ResumeLayout(false);
             this.tabPage1.ResumeLayout(false);
@@ -940,5 +1049,14 @@
         private System.Windows.Forms.ColumnHeader columnHeader6;
         private System.Windows.Forms.ColumnHeader columnHeader7;
         private Guna.UI2.WinForms.Guna2TextBox txtTargetPassword;
+        private Guna.UI2.WinForms.Guna2Panel guna2Panel1;
+        private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.Label label10;
+        private System.Windows.Forms.Label label8;
+        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.Label lblCpuTemp;
+        private System.Windows.Forms.Label lblBoardTemp;
+        private System.Windows.Forms.Label lblHddTemp;
+        private System.Windows.Forms.Label lblGpuTemp;
     }
 }

@@ -11,10 +11,6 @@ using System.Windows.Forms;
 
 namespace Client
 {
-    /// <summary>
-    /// Giao diện giám sát trung tâm (Dashboard).
-    /// Áp dụng mô hình điều khiển truy cập dựa trên vai trò (Role-Based Access Control) và Asynchronous Polling.
-    /// </summary>
     public partial class MainForm : Form
     {
         #region --- KHAI BÁO BIẾN HỆ THỐNG & LUỒNG MẠNG ---
@@ -29,7 +25,6 @@ namespace Client
         private string currentUserRole;
         private string currentUsername;
 
-        // Quản lý khóa đồng bộ hóa luồng mạng
         private System.Threading.SemaphoreSlim networkLock = new System.Threading.SemaphoreSlim(1, 1);
 
         private int sortColumn = -1;
@@ -56,9 +51,6 @@ namespace Client
             ApplySecurityPolicies();
         }
 
-        /// <summary>
-        /// Cấu hình thuộc tính Anchor để tối ưu hóa hiển thị trên các độ phân giải màn hình khác nhau (Responsive UI).
-        /// </summary>
         private void SetupAutoScaleUI()
         {
             if (guna2TabControl1 != null) guna2TabControl1.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
@@ -76,9 +68,6 @@ namespace Client
             }
         }
 
-        /// <summary>
-        /// Áp dụng chính sách bảo mật giao diện dựa trên định danh phân quyền (RBAC).
-        /// </summary>
         private void ApplySecurityPolicies()
         {
             if (currentUserRole != "Admin")
@@ -140,10 +129,6 @@ namespace Client
             }
         }
 
-        /// <summary>
-        /// Luồng thực thi Polling lấy dữ liệu Telemetry và Event Log định kỳ từ Máy chủ.
-        /// Quản lý lỗi ngắt kết nối và phiên làm việc hết hạn.
-        /// </summary>
         private async void timerFetchData_Tick(object sender, EventArgs e)
         {
             try
@@ -186,6 +171,10 @@ namespace Client
                         {
                             UpdateResourceChart(Convert.ToDouble(data.Cpu), Convert.ToDouble(data.Ram), Convert.ToDouble(data.Disk));
                             UpdateSystemInfo((string)data.MachineName, (string)data.IP, (string)data.NetDown, (string)data.NetUp);
+
+                            // GỌI HÀM CẬP NHẬT NHIỆT ĐỘ THÔNG MINH
+                            UpdateTemperatureUI((string)data.CpuTemp, (string)data.GpuTemp, (string)data.HddTemp, (string)data.BoardTemp);
+
                             string appList = (string)data.AppList;
                             UpdateAppList(string.IsNullOrEmpty(appList) || appList == "NONE" ? "NONE" : appList);
                         }
@@ -195,7 +184,6 @@ namespace Client
                         this.Invoke(new Action(() => { lblip.Text = "Trạng thái: Đang khởi tạo bộ đệm dữ liệu..."; }));
                     }
 
-                    // Tải dữ liệu nhật ký sự kiện thời gian thực (Event Logs)
                     var fetchLogsRequest = new { Type = "GET_EVENT_LOGS", TargetShareCode = currentShareCode, Password = currentSessionPassword };
                     await writer.WriteLineAsync(JsonConvert.SerializeObject(fetchLogsRequest));
 
@@ -241,9 +229,6 @@ namespace Client
 
         #region --- MODULE CHUYỂN ĐỔI NGỮ CẢNH VÀ QUẢN TRỊ TRẠNG THÁI ---
 
-        /// <summary>
-        /// Xóa bỏ bộ đệm hiển thị (UI Buffer) khi chuyển đổi mục tiêu giám sát.
-        /// </summary>
         private void ClearDashboardData()
         {
             chart1.Series["CPU"].Points.Clear();
@@ -263,6 +248,11 @@ namespace Client
             lblip.Text = "Đang thiết lập kết nối dữ liệu...";
             lblNetDown.Text = "0 KB/s";
             lblNetUp.Text = "0 KB/s";
+
+            if (lblCpuTemp != null) lblCpuTemp.Text = "N/A";
+            if (lblGpuTemp != null) lblGpuTemp.Text = "N/A";
+            if (lblHddTemp != null) lblHddTemp.Text = "N/A";
+            if (lblBoardTemp != null) lblBoardTemp.Text = "N/A";
         }
 
         private async void btnConnectCode_Click(object sender, EventArgs e)
@@ -319,7 +309,7 @@ namespace Client
                     ClearDashboardData();
 
                     currentShareCode = selectedId;
-                    currentSessionPassword = ""; // Đặc quyền Admin không yêu cầu Session Password
+                    currentSessionPassword = "";
 
                     guna2TabControl1.SelectedIndex = 0;
                     if (!timerFetchData.Enabled) timerFetchData.Start();
@@ -328,7 +318,42 @@ namespace Client
         }
         #endregion
 
-        #region --- THAO TÁC XỬ LÝ GIAO DIỆN (UI MANIPULATION) ---
+        #region --- THAO TÁC XỬ LÝ GIAO DIỆN VÀ NHIỆT ĐỘ THÔNG MINH ---
+
+        public void UpdateTemperatureUI(string cTemp, string gTemp, string hTemp, string bTemp)
+        {
+            if (this.InvokeRequired)
+            {
+                this.Invoke(new Action(() => UpdateTemperatureUI(cTemp, gTemp, hTemp, bTemp)));
+                return;
+            }
+
+            SetTemperatureLabel(lblCpuTemp, cTemp);
+            SetTemperatureLabel(lblGpuTemp, gTemp);
+            SetTemperatureLabel(lblHddTemp, hTemp);
+            SetTemperatureLabel(lblBoardTemp, bTemp);
+        }
+
+        private void SetTemperatureLabel(Label lbl, string tempValue)
+        {
+            if (lbl == null) return;
+
+            if (string.IsNullOrEmpty(tempValue) || tempValue == "0" || tempValue == "0.0")
+            {
+                lbl.Text = "N/A";
+                lbl.ForeColor = System.Drawing.Color.Gray;
+                return;
+            }
+
+            lbl.Text = $"{tempValue} °C";
+
+            if (double.TryParse(tempValue, out double temp))
+            {
+                if (temp < 60) lbl.ForeColor = System.Drawing.Color.LimeGreen;
+                else if (temp >= 60 && temp <= 80) lbl.ForeColor = System.Drawing.Color.Orange;
+                else lbl.ForeColor = System.Drawing.Color.Red;
+            }
+        }
 
         public void UpdateResourceChart(double cpuPercent, double ramPercent, double diskPercent)
         {
@@ -489,7 +514,7 @@ namespace Client
                 string strX = ((ListViewItem)x).SubItems[col].Text;
                 string strY = ((ListViewItem)y).SubItems[col].Text;
 
-                if (col == 2) // Cột bộ nhớ (Memory allocation)
+                if (col == 2)
                 {
                     double numX = ExtractNumber(strX); double numY = ExtractNumber(strY);
                     returnVal = numX.CompareTo(numY);
