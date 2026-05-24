@@ -15,6 +15,7 @@ namespace Client
     {
         #region --- KHAI BÁO BIẾN HỆ THỐNG & LUỒNG MẠNG ---
 
+
         private TcpClient client;
         private SslStream sslStream;
         private StreamReader reader;
