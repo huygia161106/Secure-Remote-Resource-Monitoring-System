@@ -188,16 +188,13 @@ namespace Server
                                                     Convert.ToDouble(data.Disk),
                                                     Convert.ToDouble(data.NetDown),
                                                     Convert.ToDouble(data.NetUp),
-                                                    (string)data.AppList,
-                                                    Convert.ToDouble(data.CpuTemp),   
-                                                    Convert.ToDouble(data.GpuTemp),   
-                                                    Convert.ToDouble(data.HddTemp),   
-                                                    Convert.ToDouble(data.BoardTemp)  
+                                                    (string)data.AppList
                                                 );
                                             });
                                         }
                                         break;
                                     }
+
                                 case "GET_LATEST_BY_CODE":
                                     {
                                         string shareCode = (string)data.ShareCode;

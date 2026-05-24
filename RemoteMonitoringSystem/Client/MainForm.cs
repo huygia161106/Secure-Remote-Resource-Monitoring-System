@@ -104,7 +104,8 @@ namespace Client
         {
             try
             {
-                client = new TcpClient("127.0.0.1", 8888);
+                // Đảm bảo IP trùng khớp với IP Server thực tế của bạn
+                client = new TcpClient("192.168.31.198", 8888);
                 NetworkStream netStream = client.GetStream();
 
                 sslStream = new SslStream(netStream, false, ValidateServerCertificate);
@@ -171,8 +172,6 @@ namespace Client
                         {
                             UpdateResourceChart(Convert.ToDouble(data.Cpu), Convert.ToDouble(data.Ram), Convert.ToDouble(data.Disk));
                             UpdateSystemInfo((string)data.MachineName, (string)data.IP, (string)data.NetDown, (string)data.NetUp);
-
-                            UpdateTemperatureUI((string)data.CpuTemp, (string)data.GpuTemp, (string)data.HddTemp, (string)data.BoardTemp);
 
                             string appList = (string)data.AppList;
                             UpdateAppList(string.IsNullOrEmpty(appList) || appList == "NONE" ? "NONE" : appList);
@@ -247,11 +246,6 @@ namespace Client
             lblip.Text = "Đang thiết lập kết nối dữ liệu...";
             lblNetDown.Text = "0 KB/s";
             lblNetUp.Text = "0 KB/s";
-
-            if (lblCpuTemp != null) lblCpuTemp.Text = "N/A";
-            if (lblGpuTemp != null) lblGpuTemp.Text = "N/A";
-            if (lblHddTemp != null) lblHddTemp.Text = "N/A";
-            if (lblBoardTemp != null) lblBoardTemp.Text = "N/A";
         }
 
         private async void btnConnectCode_Click(object sender, EventArgs e)
@@ -317,42 +311,7 @@ namespace Client
         }
         #endregion
 
-        #region --- THAO TÁC XỬ LÝ GIAO DIỆN VÀ NHIỆT ĐỘ THÔNG MINH ---
-
-        public void UpdateTemperatureUI(string cTemp, string gTemp, string hTemp, string bTemp)
-        {
-            if (this.InvokeRequired)
-            {
-                this.Invoke(new Action(() => UpdateTemperatureUI(cTemp, gTemp, hTemp, bTemp)));
-                return;
-            }
-
-            SetTemperatureLabel(lblCpuTemp, cTemp);
-            SetTemperatureLabel(lblGpuTemp, gTemp);
-            SetTemperatureLabel(lblHddTemp, hTemp);
-            SetTemperatureLabel(lblBoardTemp, bTemp);
-        }
-
-        private void SetTemperatureLabel(Label lbl, string tempValue)
-        {
-            if (lbl == null) return;
-
-            if (string.IsNullOrEmpty(tempValue) || tempValue == "0" || tempValue == "0.0")
-            {
-                lbl.Text = "N/A";
-                lbl.ForeColor = System.Drawing.Color.Gray;
-                return;
-            }
-
-            lbl.Text = $"{tempValue} °C";
-
-            if (double.TryParse(tempValue, out double temp))
-            {
-                if (temp < 60) lbl.ForeColor = System.Drawing.Color.LimeGreen;
-                else if (temp >= 60 && temp <= 80) lbl.ForeColor = System.Drawing.Color.Orange;
-                else lbl.ForeColor = System.Drawing.Color.Red;
-            }
-        }
+        #region --- THAO TÁC XỬ LÝ GIAO DIỆN (CHART & DATA VIEW) ---
 
         public void UpdateResourceChart(double cpuPercent, double ramPercent, double diskPercent)
         {

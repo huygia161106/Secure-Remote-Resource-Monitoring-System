@@ -59,7 +59,7 @@ namespace Client
 
             try
             {
-                using (TcpClient client = new TcpClient("127.0.0.1", 8888))
+                using (TcpClient client = new TcpClient("192.168.31.198", 8888))
                 using (NetworkStream netStream = client.GetStream())
                 using (SslStream sslStream = new SslStream(netStream, false, ValidateServerCertificate))
                 {

@@ -33,8 +33,7 @@ CREATE TABLE IF NOT EXISTS Clients (
 );
 
 -- ==========================================================================
--- BẢNG 3: ResourceHistory (Lưu trữ Telemetry Hiệu năng & Nhiệt độ Phần cứng)
--- Tích hợp các trường lưu trữ chỉ số từ LibreHardwareMonitorLib
+-- BẢNG 3: ResourceHistory (Lưu trữ Telemetry Hiệu năng)
 -- ==========================================================================
 CREATE TABLE IF NOT EXISTS ResourceHistory (
     Id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,10 +45,6 @@ CREATE TABLE IF NOT EXISTS ResourceHistory (
     NetworkDown     REAL,
     NetworkUp       REAL,
     AppList         TEXT,
-    CpuTemp         REAL DEFAULT 0, -- Số liệu nhiệt độ vi xử lý trung tâm
-    GpuTemp         REAL DEFAULT 0, -- Số liệu nhiệt độ vi xử lý đồ họa
-    DiskTemp        REAL DEFAULT 0, -- Số liệu nhiệt độ thiết bị lưu trữ
-    BoardTemp       REAL DEFAULT 0, -- Số liệu nhiệt độ bo mạch chủ
     FOREIGN KEY (ShareCode) REFERENCES Clients(ShareCode) ON DELETE CASCADE
 );
 

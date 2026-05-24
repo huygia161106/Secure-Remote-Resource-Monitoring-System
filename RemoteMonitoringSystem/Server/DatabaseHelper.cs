@@ -112,15 +112,15 @@ namespace Server
         /// <summary>
         /// Ghi nhận lịch sử tài nguyên phần cứng định kỳ.
         /// </summary>
-        public void SaveResourceHistory(string shareCode, double cpu, double ram, double disk, double netDown, double netUp, string appList, double cpuTemp, double gpuTemp, double hddTemp, double boardTemp)
+        public void SaveResourceHistory(string shareCode, double cpu, double ram, double disk, double netDown, double netUp, string appList)
         {
             using (SQLiteConnection conn = new SQLiteConnection(connectionString))
             {
                 try
                 {
                     conn.Open();
-                    string query = @"INSERT INTO ResourceHistory (ShareCode, CpuPercent, RamPercent, DiskPercent, NetworkDown, NetworkUp, AppList, CpuTemp, GpuTemp, DiskTemp, BoardTemp) 
-                                     VALUES (@code, @cpu, @ram, @disk, @netDown, @netUp, @appList, @cTemp, @gTemp, @dTemp, @bTemp)";
+                    string query = @"INSERT INTO ResourceHistory (ShareCode, CpuPercent, RamPercent, DiskPercent, NetworkDown, NetworkUp, AppList) 
+                                     VALUES (@code, @cpu, @ram, @disk, @netDown, @netUp, @appList)";
                     using (SQLiteCommand cmd = new SQLiteCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@code", shareCode);
@@ -130,11 +130,6 @@ namespace Server
                         cmd.Parameters.AddWithValue("@netDown", netDown);
                         cmd.Parameters.AddWithValue("@netUp", netUp);
                         cmd.Parameters.AddWithValue("@appList", appList);
-                        // Tham số nhiệt độ
-                        cmd.Parameters.AddWithValue("@cTemp", cpuTemp);
-                        cmd.Parameters.AddWithValue("@gTemp", gpuTemp);
-                        cmd.Parameters.AddWithValue("@dTemp", hddTemp);
-                        cmd.Parameters.AddWithValue("@bTemp", boardTemp);
                         cmd.ExecuteNonQuery();
                     }
                 }
