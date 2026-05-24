@@ -244,7 +244,6 @@ namespace Client
 
                 if (_computer != null)
                 {
-                    // Áp dụng Design Pattern: Visitor để duyệt qua cấu trúc cây phần cứng (bao gồm cả Hybrid Architecture)
                     _computer.Accept(new UpdateVisitor());
 
                     void CollectTemps(IHardware hardware)

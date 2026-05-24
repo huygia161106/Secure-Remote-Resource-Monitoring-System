@@ -172,7 +172,6 @@ namespace Client
                             UpdateResourceChart(Convert.ToDouble(data.Cpu), Convert.ToDouble(data.Ram), Convert.ToDouble(data.Disk));
                             UpdateSystemInfo((string)data.MachineName, (string)data.IP, (string)data.NetDown, (string)data.NetUp);
 
-                            // GỌI HÀM CẬP NHẬT NHIỆT ĐỘ THÔNG MINH
                             UpdateTemperatureUI((string)data.CpuTemp, (string)data.GpuTemp, (string)data.HddTemp, (string)data.BoardTemp);
 
                             string appList = (string)data.AppList;
