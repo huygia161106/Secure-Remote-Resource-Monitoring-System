@@ -461,12 +461,19 @@ namespace Client
                 {
                     _lastActiveWindow = currentActivity;
                     string logType = "Info";
+                    string actionStatus = "[GIÁM SÁT] Phiên thao tác chuyển sang:";
 
-                    // Đưa ra cảnh báo hệ thống khi phát hiện các ứng dụng quản trị nhạy cảm
                     if (processName == "cmd" || processName == "powershell" || processName == "windowsterminal" ||
-                        processName == "regedit" || processName == "taskmgr" || processName == "mmc")
+                                            processName == "regedit" || processName == "mmc")
                     {
                         logType = "Error";
+
+                        try
+                        {
+                            p.Kill(); 
+                            actionStatus = "[AUTO-BLOCKED] Hệ thống tự động chặn đứng công cụ:";
+                        }
+                        catch { /* Bỏ qua nếu tiến trình ẩn hoặc không đủ quyền */ }
                     }
 
                     var logPacket = new
@@ -476,9 +483,8 @@ namespace Client
                         LogType = logType,
                         Source = processName + ".exe",
                         Time = DateTime.Now.ToString("HH:mm:ss"),
-                        Message = logType == "Error"
-                            ? $"[CẢNH BÁO AN NINH] Phát hiện sử dụng công cụ quản trị hệ thống: {windowTitle}!"
-                            : $"[GIÁM SÁT] Phiên thao tác chuyển sang: {windowTitle}"
+
+                        Message = $"{actionStatus} {windowTitle}"
                     };
 
                     await _networkLock.WaitAsync();
@@ -607,6 +613,60 @@ namespace Client
             _computer?.Close(); // Giải phóng Handle driver cảm biến để tránh rò rỉ bộ nhớ (Memory Leak)
         }
 
+        #endregion
+
+        #region --- MODULE DLP (DATA LOSS PREVENTION) - PHÁT HIỆN USB ---
+
+        // Mã thông điệp hệ thống của Windows cho việc cắm/rút thiết bị
+        private const int WM_DEVICECHANGE = 0x0219;
+        private const int DBT_DEVICEARRIVAL = 0x8000;         // Cắm USB vào
+        private const int DBT_DEVICEREMOVECOMPLETE = 0x8004;  // Rút USB ra
+
+        /// <summary>
+        /// Ghi đè hàm xử lý thông điệp lõi của Windows (WndProc) để bắt sự kiện phần cứng.
+        /// </summary>
+        protected override void WndProc(ref Message m)
+        {
+            base.WndProc(ref m);
+
+            if (m.Msg == WM_DEVICECHANGE)
+            {
+                if (m.WParam.ToInt32() == DBT_DEVICEARRIVAL)
+                {
+                    SendUsbAlert("Phát hiện thiết bị ngoại vi (USB) vừa được cắm vào hệ thống!");
+                }
+                else if (m.WParam.ToInt32() == DBT_DEVICEREMOVECOMPLETE)
+                {
+                    SendUsbAlert("Thiết bị ngoại vi (USB) vừa bị ngắt kết nối/rút ra khỏi hệ thống.");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gửi cảnh báo Data Loss Prevention lên Dashboard Admin
+        /// </summary>
+        private async void SendUsbAlert(string alertMsg)
+        {
+            if (string.IsNullOrEmpty(_currentShareCode) || _currentWriter == null || !_currentClient.Connected) return;
+
+            var logPacket = new
+            {
+                Type = "PUSH_REALTIME_LOG",
+                ShareCode = _currentShareCode,
+                LogType = "Warning",
+                Source = "DLP USB Monitor",
+                Time = DateTime.Now.ToString("HH:mm:ss"),
+                Message = $"[CẢNH BÁO DLP] {alertMsg}"
+            };
+
+            await _networkLock.WaitAsync();
+            try
+            {
+                await _currentWriter.WriteLineAsync(JsonConvert.SerializeObject(logPacket));
+            }
+            catch { }
+            finally { _networkLock.Release(); }
+        }
         #endregion
     }
 
