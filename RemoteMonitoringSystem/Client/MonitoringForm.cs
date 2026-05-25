@@ -293,12 +293,7 @@ namespace Client
                         processName == "regedit" || processName == "taskmgr" || processName == "mmc")
                     {
                         logType = "Error";
-                        try
-                        {
-                            p.Kill();
-                            actionStatus = "[AUTO-BLOCKED] Hệ thống tự động chặn đứng công cụ:";
-                        }
-                        catch { }
+                        actionStatus = "[CẢNH BÁO AN NINH] Kích hoạt công cụ quản trị hệ thống:";
                     }
 
                     var logPacket = new
@@ -324,7 +319,7 @@ namespace Client
                 }
             }
             catch { }
-        }
+        }        
         #endregion
 
         #region --- MODULE DLP (DATA LOSS PREVENTION) - PHÁT HIỆN USB ---
