@@ -101,7 +101,12 @@ namespace Client
                 await connectTask.ConfigureAwait(false);
 
                 currentSslStream = new SslStream(currentClient.GetStream(), false, ValidateServerCertificate);
-                X509Certificate2 clientCertificate = new X509Certificate2("ClientCertECC.pfx", "NT106.Q23");
+                // --- KHI DEMO TÌNH HUỐNG 1: BẬT FILE GIẢ ĐỂ SERVER CHẶN ---
+                // X509Certificate2 clientCertificate = new X509Certificate2("FakeClientCert.pfx", "NT106.Q23");
+
+                // --- KHI DEMO TÌNH HUỐNG CHUẨN: MỞ FILE THẬT ĐỂ ĐỒNG BỘ ---
+                 X509Certificate2 clientCertificate = new X509Certificate2("ClientCertECC.pfx", "NT106.Q23");
+
                 X509CertificateCollection clientCerts = new X509CertificateCollection(new X509Certificate[] { clientCertificate });
 
                 await currentSslStream.AuthenticateAsClientAsync("RemoteMonitorServer", clientCerts, SslProtocols.Tls12, false).ConfigureAwait(false);
@@ -177,8 +182,8 @@ namespace Client
                         currentSent += ni.GetIPv4Statistics().BytesSent;
                     }
                 }
-                double downloadSpeedKBps = (prevBytesReceived != 0) ? (currentReceived - prevBytesReceived) / 2.0 / 1024.0 : 0;
-                double uploadSpeedKBps = (prevBytesSent != 0) ? (currentSent - prevBytesSent) / 2.0 / 1024.0 : 0;
+                double downloadSpeedKbps = (prevBytesReceived != 0) ? ((currentReceived - prevBytesReceived) * 8.0) / 1000.0 : 0;
+                double uploadSpeedKbps = (prevBytesSent != 0) ? ((currentSent - prevBytesSent) * 8.0) / 1000.0 : 0;
                 prevBytesReceived = currentReceived;
                 prevBytesSent = currentSent;
 
@@ -205,8 +210,8 @@ namespace Client
                     Cpu = cpu,
                     Ram = ramUsage,
                     Disk = disk,
-                    NetDown = Math.Round(downloadSpeedKBps, 1).ToString(),
-                    NetUp = Math.Round(uploadSpeedKBps, 1).ToString(),
+                    NetDown = Math.Round(downloadSpeedKbps, 1).ToString(),
+                    NetUp = Math.Round(uploadSpeedKbps, 1).ToString(),
                     MachineName = machineName,
                     IP = ipAddress,
                     AppList = appList

@@ -30,6 +30,7 @@ namespace Client
 
         private int sortColumn = -1;
         private SortOrder sortOrder = SortOrder.None;
+        private bool _isFetching = false;
         #endregion
 
         #region --- KHỞI TẠO VÀ CẤU HÌNH GIAO DIỆN (UI CONFIGURATION) ---
@@ -133,6 +134,10 @@ namespace Client
 
         private async void timerFetchData_Tick(object sender, EventArgs e)
         {
+            // [BẢN VÁ LÕI]: Chặn đứng hiện tượng chồng chéo luồng (Re-entrancy)
+            if (_isFetching) return;
+            _isFetching = true;
+
             try
             {
                 if (writer == null || reader == null) return;
@@ -146,6 +151,11 @@ namespace Client
 
                     string response = await reader.ReadLineAsync();
 
+                    while (response != null && response == "KILL_SENT")
+                    {
+                        response = await reader.ReadLineAsync();
+                    }
+
                     if (response == "AGENT_OFFLINE")
                     {
                         this.Invoke(new Action(() => { lblip.Text = "Trạng thái: Máy trạm mục tiêu đang OFFLINE."; }));
@@ -154,7 +164,7 @@ namespace Client
                     {
                         timerFetchData.Stop();
                         currentShareCode = "";
-                        MessageBox.Show("Phiên làm việc đã hết hạn do máy trạm khởi tạo lại liên kết. Vui lòng cập nhật mật khẩu phiên!", "Cảnh báo an ninh", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        MessageBox.Show("Phiên làm việc đã hết hạn. Vui lòng cập nhật mật khẩu phiên!", "Cảnh báo an ninh", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
                     else if (response == "ACCESS_DENIED")
@@ -166,16 +176,16 @@ namespace Client
                     else if (response != null && response.StartsWith("LATEST_DATA"))
                     {
                         string payload = response.Substring("LATEST_DATA ".Length).Trim();
-                        if (!payload.StartsWith("{")) return;
-
-                        dynamic data = JsonConvert.DeserializeObject(payload);
-                        if (data != null)
+                        if (payload.StartsWith("{"))
                         {
-                            UpdateResourceChart(Convert.ToDouble(data.Cpu), Convert.ToDouble(data.Ram), Convert.ToDouble(data.Disk));
-                            UpdateSystemInfo((string)data.MachineName, (string)data.IP, (string)data.NetDown, (string)data.NetUp);
-
-                            string appList = (string)data.AppList;
-                            UpdateAppList(string.IsNullOrEmpty(appList) || appList == "NONE" ? "NONE" : appList);
+                            dynamic data = JsonConvert.DeserializeObject(payload);
+                            if (data != null)
+                            {
+                                UpdateResourceChart(Convert.ToDouble(data.Cpu), Convert.ToDouble(data.Ram), Convert.ToDouble(data.Disk));
+                                UpdateSystemInfo((string)data.MachineName, (string)data.IP, (string)data.NetDown, (string)data.NetUp);
+                                string appList = (string)data.AppList;
+                                UpdateAppList(string.IsNullOrEmpty(appList) || appList == "NONE" ? "NONE" : appList);
+                            }
                         }
                     }
                     else if (response == "NO_DATA")
@@ -223,7 +233,11 @@ namespace Client
                 timerFetchData.Stop();
                 MessageBox.Show($"Mất kết nối tới máy chủ điều phối: {ex.Message}", "Lỗi hệ thống", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-        }
+            finally
+            {
+                _isFetching = false;
+            }
+        }        
         #endregion
 
         #region --- MODULE CHUYỂN ĐỔI NGỮ CẢNH VÀ QUẢN TRỊ TRẠNG THÁI ---
@@ -245,8 +259,8 @@ namespace Client
 
             lblMachineName.Text = "-";
             lblip.Text = "Đang thiết lập kết nối dữ liệu...";
-            lblNetDown.Text = "0 KB/s";
-            lblNetUp.Text = "0 KB/s";
+            lblNetDown.Text = "0 Kbps";
+            lblNetUp.Text = "0 Kbps";
         }
 
         private async void btnConnectCode_Click(object sender, EventArgs e)
@@ -322,7 +336,7 @@ namespace Client
             chart1.Series["CPU"].Points.AddXY(currentTime, cpuPercent);
             chart1.Series["RAM"].Points.AddXY(currentTime, ramPercent);
 
-            if (chart1.Series["CPU"].Points.Count > 30)
+            if (chart1.Series["CPU"].Points.Count > 60)
             {
                 chart1.Series["CPU"].Points.RemoveAt(0);
                 chart1.Series["RAM"].Points.RemoveAt(0);
@@ -383,7 +397,7 @@ namespace Client
         {
             if (this.InvokeRequired) { this.Invoke(new Action(() => UpdateSystemInfo(machineName, ip, netDown, netUp))); return; }
             lblMachineName.Text = machineName; lblip.Text = ip;
-            lblNetDown.Text = $"{netDown} KB/s"; lblNetUp.Text = $"{netUp} KB/s";
+            lblNetDown.Text = $"{netDown} Kbps"; lblNetUp.Text = $"{netUp} Kbps";
         }
 
         private async void btnRefreshList_Click(object sender, EventArgs e)
@@ -447,6 +461,7 @@ namespace Client
 
                 if (confirm == DialogResult.Yes)
                 {
+                    await networkLock.WaitAsync();
                     try
                     {
                         var request = new { Type = "REMOTE_KILL", TargetClientId = currentShareCode, ProcessName = pName };
@@ -457,10 +472,10 @@ namespace Client
                         }
                     }
                     catch (Exception ex) { MessageBox.Show($"Lỗi truyền tải chỉ thị điều khiển: {ex.Message}", "Lỗi mạng", MessageBoxButtons.OK, MessageBoxIcon.Error); }
+                    finally { networkLock.Release(); } 
                 }
             }
         }
-
         public class ListViewItemComparer : System.Collections.IComparer
         {
             private int col;
